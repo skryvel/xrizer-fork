@@ -378,6 +378,23 @@ impl<C: openxr_data::Compositor> Input<C> {
             );
         }
 
+        {
+            let mut per_action: std::collections::BTreeMap<&str, Vec<String>> =
+                std::collections::BTreeMap::new();
+            for (name, path) in context.bindings.iter() {
+                let s = self
+                    .openxr
+                    .instance
+                    .path_to_string(*path)
+                    .unwrap_or_else(|_| "<unknown>".to_string());
+                per_action.entry(name.as_str()).or_default().push(s);
+            }
+            info!("=== resolved bindings for {} ===", P::profile_path());
+            for (action, sources) in &per_action {
+                info!("  {action} -> {sources:?}");
+            }
+        }
+
         let info_action_binding = *legacy_bindings
             .trigger_click
             .first()
@@ -420,19 +437,25 @@ impl<C: openxr_data::Compositor> Input<C> {
             .chain(skeletal_bindings.binding_iter(&context.skeletal_input.actions))
             .collect();
 
-        self.openxr
+        match self
+            .openxr
             .instance
             .suggest_interaction_profile_bindings(profile_path, &bindings)
-            .unwrap_or_else(|e| {
-                panic!(
-                    "Couldn't suggest profile bindings for {}: {e}",
-                    std::any::type_name::<P>()
-                )
-            });
-        debug!(
-            "suggested {} bindings for {}",
-            bindings.len(),
-            P::profile_path()
-        );
+        {
+            Ok(()) => debug!(
+                "suggested {} bindings for {}",
+                bindings.len(),
+                P::profile_path()
+            ),
+            Err(xr::sys::Result::ERROR_PATH_UNSUPPORTED) => warn!(
+                "Skipping {}: runtime does not support interaction profile {}",
+                std::any::type_name::<P>(),
+                P::profile_path()
+            ),
+            Err(e) => panic!(
+                "Couldn't suggest profile bindings for {}: {e}",
+                std::any::type_name::<P>()
+            ),
+        }
     }
 }

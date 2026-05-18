@@ -940,6 +940,25 @@ impl<C: openxr_data::Compositor> vr::IVRInput010_Interface for Input<C> {
             ..Default::default()
         };
 
+        if log::log_enabled!(log::Level::Trace) {
+            let action_map = self.action_map.read().unwrap();
+            let action_key = ActionKey::from(KeyData::from_ffi(handle));
+            let input_map = self.input_source_map.read().unwrap();
+            let restrict_key = InputSourceKey::from(KeyData::from_ffi(restrict_to_device));
+            let active_key = InputSourceKey::from(KeyData::from_ffi(active_hand));
+            trace!(
+                "analog {:?} (restrict: {:?}) -> x={} y={} dx={} dy={} active={} origin={:?}",
+                action_map.get(action_key).map(|a| &a.path),
+                input_map.get(restrict_key),
+                state.current_state.x,
+                state.current_state.y,
+                delta.x,
+                delta.y,
+                state.is_active,
+                input_map.get(active_key),
+            );
+        }
+
         vr::EVRInputError::None
     }
 
@@ -982,6 +1001,23 @@ impl<C: openxr_data::Compositor> vr::IVRInput010_Interface for Input<C> {
             bChanged: state.changed_since_last_sync,
             fUpdateTime: 0.0, // TODO
         };
+
+        if log::log_enabled!(log::Level::Trace) {
+            let action_map = self.action_map.read().unwrap();
+            let action_key = ActionKey::from(KeyData::from_ffi(handle));
+            let input_map = self.input_source_map.read().unwrap();
+            let restrict_key = InputSourceKey::from(KeyData::from_ffi(restrict_to_device));
+            let active_key = InputSourceKey::from(KeyData::from_ffi(active_hand));
+            trace!(
+                "digital {:?} (restrict: {:?}) -> state={} active={} changed={} origin={:?}",
+                action_map.get(action_key).map(|a| &a.path),
+                input_map.get(restrict_key),
+                state.current_state,
+                state.is_active,
+                state.changed_since_last_sync,
+                input_map.get(active_key),
+            );
+        }
 
         vr::EVRInputError::None
     }
