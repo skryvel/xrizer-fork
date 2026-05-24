@@ -155,8 +155,28 @@ impl InteractionProfile for MetaTouchPlus {
 #[cfg(test)]
 mod tests {
     use super::{InteractionProfile, MetaTouchPlus};
+    use crate::input::profiles::DynInputPath;
     use crate::input::tests::Fixture;
     use openxr as xr;
+
+    #[test]
+    fn clicky_paths_translate_to_value() {
+        // The Plus profile only exposes analog trigger/squeeze, so a digital
+        // binding to their `click` must fall back to the value component.
+        let translate = |s: &str| {
+            MetaTouchPlus::translate_path(s.parse::<DynInputPath>().unwrap()).map(|p| p.to_string())
+        };
+        assert_eq!(
+            translate("/user/hand/left/input/trigger/click").as_deref(),
+            Some("/user/hand/left/input/trigger/value")
+        );
+        // OpenVR names the squeeze subpath "grip"; it displays back as "squeeze".
+        assert_eq!(
+            translate("/user/hand/right/input/grip/click").as_deref(),
+            Some("/user/hand/right/input/squeeze/value")
+        );
+        assert_eq!(translate("/user/hand/right/input/a/click"), None);
+    }
 
     #[test]
     fn verify_bindings() {

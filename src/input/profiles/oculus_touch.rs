@@ -1,5 +1,5 @@
 use super::{
-    InteractionProfile, Left, MainAxisType, ProfileProperties, Property, Right,
+    DynInputPath, InteractionProfile, Left, MainAxisType, ProfileProperties, Property, Right,
     SkeletalInputBindings, legal_paths, paths::*,
 };
 use crate::button_mask_from_ids;
@@ -64,6 +64,22 @@ impl InteractionProfile for OculusTouch {
     }
     fn has_required_extensions(_: &openxr::ExtensionSet) -> bool {
         true
+    }
+
+    fn translate_path(path: DynInputPath) -> Option<DynInputPath> {
+        // Touch controllers have no physical trigger/squeeze click; a digital
+        // binding to them must threshold the analog value instead.
+        match path {
+            DynInputPath {
+                subpath: DynSubpath::Trigger | DynSubpath::Squeeze,
+                component: Some(DynComponent::Click),
+                ..
+            } => Some(DynInputPath {
+                component: Some(DynComponent::Value),
+                ..path
+            }),
+            _ => None,
+        }
     }
 
     fn legacy_bindings(c: &InputToXrPath<Self>) -> LegacyBindings {
@@ -138,8 +154,31 @@ impl InteractionProfile for OculusTouch {
 #[cfg(test)]
 mod tests {
     use super::{InteractionProfile, OculusTouch};
+    use crate::input::profiles::DynInputPath;
     use crate::input::tests::Fixture;
     use openxr as xr;
+
+    #[test]
+    fn clicky_paths_translate_to_value() {
+        // Touch controllers have no physical trigger/squeeze click, so a digital
+        // binding to them must fall back to the analog value (e.g. a `mode: trigger`
+        // binding with a `click` input, which is bound verbatim rather than through
+        // the button handler's value defaulting).
+        let translate = |s: &str| {
+            OculusTouch::translate_path(s.parse::<DynInputPath>().unwrap()).map(|p| p.to_string())
+        };
+        assert_eq!(
+            translate("/user/hand/left/input/trigger/click").as_deref(),
+            Some("/user/hand/left/input/trigger/value")
+        );
+        // OpenVR names the squeeze subpath "grip"; it displays back as "squeeze".
+        assert_eq!(
+            translate("/user/hand/right/input/grip/click").as_deref(),
+            Some("/user/hand/right/input/squeeze/value")
+        );
+        // Genuinely digital components are left untouched.
+        assert_eq!(translate("/user/hand/right/input/a/click"), None);
+    }
 
     #[test]
     fn verify_bindings() {
