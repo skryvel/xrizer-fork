@@ -1,4 +1,5 @@
 pub mod knuckles;
+pub mod meta_touch_plus;
 pub mod oculus_touch;
 pub mod simple_controller;
 pub mod vive_controller;
@@ -13,6 +14,7 @@ use crate::openxr_data::Hand;
 use glam::Mat4;
 use knuckles::Knuckles;
 use oculus_touch::OculusTouch;
+use meta_touch_plus::MetaTouchPlus;
 use openxr as xr;
 use simple_controller::SimpleController;
 use std::ffi::CStr;
@@ -51,7 +53,10 @@ impl ControllerType {
                 runner.run::<ViveWands>();
                 runner.run::<SimpleController>();
             }
-            Self::OculusTouch => runner.run::<OculusTouch>(),
+            Self::OculusTouch => {
+                runner.run::<OculusTouch>();
+                runner.run::<MetaTouchPlus>();
+            }
             Self::Knuckles => runner.run::<Knuckles>(),
             Self::ViveFocus3 => runner.run::<ViveFocus3>(),
             Self::Unknown(_) => {}
@@ -88,6 +93,7 @@ pub fn run_for_all_profiles(runner: &mut impl RunWithProfile) {
     profile!(ViveWands);
     profile!(Knuckles);
     profile!(OculusTouch);
+    profile!(MetaTouchPlus);
     profile!(ViveFocus3);
     profile!(SimpleController);
 }
@@ -383,6 +389,8 @@ impl std::fmt::Display for DynInputPath {
         Ok(())
     }
 }
+
+
 impl std::str::FromStr for DynInputPath {
     type Err = String;
 
