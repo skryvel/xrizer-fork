@@ -1060,8 +1060,12 @@ impl<C: openxr_data::Compositor> vr::IVRInput010_Interface for Input<C> {
                 let key = ActionSetKey::from(KeyData::from_ffi(set.ulActionSet));
                 let name = set_map.get(key);
                 let Some(set) = actions.sets.get(key) else {
-                    debug!("Application passed invalid action set key: {key:?} ({name:?})");
-                    return vr::EVRInputError::InvalidHandle;
+                    // The app handed us a handle for a set that was never loaded - this
+                    // happens when a binding file references a set the action manifest
+                    // doesn't declare. Skip it rather than aborting the whole sync, which
+                    // would also drop every valid set activated in the same call.
+                    debug!("Application passed invalid action set key: {key:?} ({name:?}), skipping");
+                    continue;
                 };
                 debug!("Activating set {}", name.unwrap());
                 sync_sets.push(set.into());

@@ -451,6 +451,51 @@ fn input_state_flow() {
 }
 
 #[test]
+fn unknown_active_set_is_skipped_not_fatal() {
+    let mut f = Fixture::new();
+
+    let set1 = f.get_action_set_handle(c"/actions/set1");
+    let boolact = f.get_action_handle(c"/actions/set1/in/boolact");
+
+    f.load_actions(c"actions.json");
+
+    // The app can obtain a handle for a set the manifest never declared (e.g. a
+    // binding file references a set actions.json doesn't list) and activate it
+    // alongside a real set. That must not abort the sync for the valid set.
+    let bogus_set = f.get_action_set_handle(c"/actions/nonexistent");
+
+    fakexr::set_action_state(
+        f.get_action::<bool>(boolact),
+        fakexr::ActionState::Bool(true),
+        LeftHand,
+    );
+
+    let mut active = [
+        vr::VRActiveActionSet_t {
+            ulActionSet: bogus_set,
+            ..Default::default()
+        },
+        vr::VRActiveActionSet_t {
+            ulActionSet: set1,
+            ..Default::default()
+        },
+    ];
+    assert_eq!(
+        f.input.UpdateActionState(
+            active.as_mut_ptr(),
+            std::mem::size_of::<vr::VRActiveActionSet_t>() as u32,
+            active.len() as u32,
+        ),
+        vr::EVRInputError::None
+    );
+
+    // The valid set still synced despite the bogus one.
+    let state = f.get_bool_state(boolact).unwrap();
+    assert!(state.bState);
+    assert!(state.bActive);
+}
+
+#[test]
 fn reload_manifest_on_session_restart() {
     let mut f = Fixture::new();
 
